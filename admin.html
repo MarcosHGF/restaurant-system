@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Page</title>
+</head>
+<body>
+  <h1>Admin Page</h1>
+  <div id="tables"></div>
+
+  <script>
+    async function fetchOrders() {
+      const response = await fetch('/orders');
+      const orders = await response.json();
+
+      const tables = document.getElementById('tables');
+      tables.innerHTML = '';
+
+      const tableOrders = {};
+
+      orders.forEach(order => {
+        if (!tableOrders[order.tableNumber]) {
+          tableOrders[order.tableNumber] = [];
+        }
+        tableOrders[order.tableNumber].push(order);
+      });
+
+      Object.keys(tableOrders).forEach(tableNumber => {
+        const tableDiv = document.createElement('div');
+        tableDiv.innerHTML = `<h2>Table ${tableNumber}</h2>`;
+        const ul = document.createElement('ul');
+
+        let total = 0;
+
+        tableOrders[tableNumber].forEach(order => {
+          const li = document.createElement('li');
+          li.textContent = `Order: ${order.orderNumber}, Price: $${order.itemPrice}`;
+          ul.appendChild(li);
+          total += order.itemPrice;
+        });
+
+        const totalDiv = document.createElement('div');
+        totalDiv.textContent = `Total: $${total.toFixed(2)}`;
+
+        const resetButton = document.createElement('button');
+        resetButton.textContent = 'Reset Table';
+        resetButton.addEventListener('click', async function() {
+          await fetch(`/orders/reset/${tableNumber}`, {
+            method: 'DELETE'
+          });
+          fetchOrders();
+        });
+
+        tableDiv.appendChild(ul);
+        tableDiv.appendChild(totalDiv);
+        tableDiv.appendChild(resetButton);
+        tables.appendChild(tableDiv);
+      });
+    }
+
+    fetchOrders();
+  </script>
+</body>
+</html>

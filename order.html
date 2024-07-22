@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Order Page</title>
+</head>
+<body>
+  <h1>Order Page</h1>
+  <input type="text" id="orderInput" list="menuItems" placeholder="Enter order item">
+  <datalist id="menuItems"></datalist>
+  <button onclick="submitOrder()">Submit Order</button>
+  <button onclick="openMenu()">Menu</button>
+  <ul id="orders"></ul>
+
+  <script>
+    const urlParams = new URLSearchParams(window.location.search);
+    const tableNumber = urlParams.get('table');
+
+    async function submitOrder() {
+      const orderInput = document.getElementById('orderInput').value;
+      await fetch('/order', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          tableNumber: tableNumber,
+          orderNumber: orderInput
+        })
+      });
+      fetchOrders();
+    }
+
+    function openMenu() {
+      window.open('menu.html', '_blank');
+    }
+
+    async function fetchOrders() {
+      const response = await fetch(`/orders/${tableNumber}`);
+      const orders = await response.json();
+      displayOrders(orders);
+    }
+
+    function displayOrders(orders) {
+      const ordersList = document.getElementById('orders');
+      ordersList.innerHTML = '';
+
+      orders.forEach(order => {
+        const li = document.createElement('li');
+        li.textContent = `Order: ${order.orderNumber} - Status: ${order.status}`;
+        ordersList.appendChild(li);
+      });
+    }
+
+    async function loadMenuItems() {
+      try {
+        const response = await fetch('/menu');
+        if (!response.ok) {
+          throw new Error('Failed to fetch menu items');
+        }
+        const menuItems = await response.json();
+
+        const datalist = document.getElementById('menuItems');
+        datalist.innerHTML = '';
+
+        menuItems.forEach(item => {
+          const option = document.createElement('option');
+          option.value = item.name;
+          datalist.appendChild(option);
+        });
+      } catch (error) {
+        console.error('Error loading menu items:', error);
+      }
+    }
+
+    loadMenuItems();
+    fetchOrders();
+  </script>
+</body>
+</html>
