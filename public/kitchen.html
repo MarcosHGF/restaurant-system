@@ -3,63 +3,63 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Kitchen Orders</title>
+  <title>Kitchen Page</title>
+  <link rel="stylesheet" href="styles.css">
 </head>
-<body>
-  <h1>Kitchen Orders</h1>
-  <div id="orders"></div>
+<body class="kitchen-page">
+  <h1>Kitchen Page</h1>
+  <ul id="pendingOrders"></ul>
 
   <script>
-    async function fetchOrders() {
-      const response = await fetch('/orders');
-      const orders = await response.json();
-
-      const ordersDiv = document.getElementById('orders');
-      ordersDiv.innerHTML = '';
-
-      orders.forEach(order => {
-        if (order.status !== 'delivered') {
-          const orderDiv = document.createElement('div');
-          orderDiv.innerHTML = `
-            <p>Table: ${order.tableNumber}</p>
-            <p>Order: ${order.orderNumber}</p>
-            <p>Status: ${order.status}</p>
-          `;
-
-          if (order.status === 'pending') {
-            const readyButton = document.createElement('button');
-            readyButton.textContent = 'Mark as Ready';
-            readyButton.addEventListener('click', async function() {
-              await updateOrderStatus(order._id, 'ready');
-              fetchOrders();
-            });
-            orderDiv.appendChild(readyButton);
-          } else if (order.status === 'ready') {
-            const deliveredButton = document.createElement('button');
-            deliveredButton.textContent = 'Mark as Delivered';
-            deliveredButton.addEventListener('click', async function() {
-              await updateOrderStatus(order._id, 'delivered');
-              fetchOrders();
-            });
-            orderDiv.appendChild(deliveredButton);
-          }
-
-          ordersDiv.appendChild(orderDiv);
+    async function loadPendingOrders() {
+      try {
+        const response = await fetch('/orders');
+        if (!response.ok) {
+          throw new Error('Failed to fetch orders');
         }
-      });
+        const orders = await response.json();
+
+        const ordersList = document.getElementById('pendingOrders');
+        ordersList.innerHTML = '';
+
+        orders.forEach(order => {
+          order.orderItems.forEach(item => {
+            if (item.status === 'pending' || item.status === 'ready') {
+              const li = document.createElement('li');
+              li.className = 'kitchen-item';
+              li.innerHTML = `
+                Table ${order.tableNumber}: ${item.name} - ${item.status}
+                <button onclick="updateOrderStatus('${item._id}', '${item.status === 'pending' ? 'ready' : 'delivered'}')">${item.status === 'pending' ? 'Mark as Ready' : 'Mark as Delivered'}</button>
+              `;
+              ordersList.appendChild(li);
+            }
+          });
+        });
+      } catch (error) {
+        console.error('Error loading orders:', error);
+      }
     }
 
-    async function updateOrderStatus(id, status) {
-      await fetch(`/orders/${id}/status`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ status })
-      });
+    async function updateOrderStatus(itemId, status) {
+      try {
+        const response = await fetch(`/orders/${itemId}/status`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ status })
+        });
+        if (response.ok) {
+          loadPendingOrders();
+        } else {
+          throw new Error('Failed to update order status');
+        }
+      } catch (error) {
+        console.error('Error updating order status:', error);
+      }
     }
 
-    fetchOrders();
+    loadPendingOrders();
   </script>
 </body>
 </html>
