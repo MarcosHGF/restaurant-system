@@ -4,54 +4,18 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Order Page</title>
+  <link rel="stylesheet" href="styles.css">
 </head>
-<body>
+<body class="order-page">
   <h1>Order Page</h1>
-  <input type="text" id="orderInput" list="menuItems" placeholder="Enter order item">
-  <datalist id="menuItems"></datalist>
-  <button onclick="submitOrder()">Submit Order</button>
-  <button onclick="openMenu()">Menu</button>
-  <ul id="orders"></ul>
+  <ul id="menuItems"></ul>
+  <h2>Your Order</h2>
+  <ul id="orderList"></ul>
+  <button class="submit-order" onclick="submitOrder()">Submit Order</button>
 
   <script>
-    const urlParams = new URLSearchParams(window.location.search);
-    const tableNumber = urlParams.get('table');
-
-    async function submitOrder() {
-      const orderInput = document.getElementById('orderInput').value;
-      await fetch('/order', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          tableNumber: tableNumber,
-          orderNumber: orderInput
-        })
-      });
-      fetchOrders();
-    }
-
-    function openMenu() {
-      window.open('menu.html', '_blank');
-    }
-
-    async function fetchOrders() {
-      const response = await fetch(`/orders/${tableNumber}`);
-      const orders = await response.json();
-      displayOrders(orders);
-    }
-
-    function displayOrders(orders) {
-      const ordersList = document.getElementById('orders');
-      ordersList.innerHTML = '';
-
-      orders.forEach(order => {
-        const li = document.createElement('li');
-        li.textContent = `Order: ${order.orderNumber} - Status: ${order.status}`;
-        ordersList.appendChild(li);
-      });
-    }
+    let menuItems = [];
+    let orderItems = [];
 
     async function loadMenuItems() {
       try {
@@ -59,23 +23,70 @@
         if (!response.ok) {
           throw new Error('Failed to fetch menu items');
         }
-        const menuItems = await response.json();
+        menuItems = await response.json();
 
-        const datalist = document.getElementById('menuItems');
-        datalist.innerHTML = '';
+        const menuItemsList = document.getElementById('menuItems');
+        menuItemsList.innerHTML = '';
 
         menuItems.forEach(item => {
-          const option = document.createElement('option');
-          option.value = item.name;
-          datalist.appendChild(option);
+          const li = document.createElement('li');
+          li.className = 'menu-item';
+          li.innerHTML = `
+            ${item.name} - $${item.price.toFixed(2)}
+            <input type="number" min="1" value="1" id="quantity-${item.name}">
+            <button onclick="addItemToOrder('${item.name}', ${item.price})">Add to Order</button>
+          `;
+          menuItemsList.appendChild(li);
         });
       } catch (error) {
         console.error('Error loading menu items:', error);
       }
     }
 
+    function addItemToOrder(name, price) {
+      const quantity = document.getElementById(`quantity-${name}`).value;
+      for (let i = 0; i < quantity; i++) {
+        orderItems.push({ name, price });
+      }
+      updateOrderList();
+    }
+
+    function updateOrderList() {
+      const orderList = document.getElementById('orderList');
+      orderList.innerHTML = '';
+
+      orderItems.forEach(item => {
+        const li = document.createElement('li');
+        li.className = 'order-item';
+        li.innerText = `${item.name} - $${item.price.toFixed(2)}`;
+        orderList.appendChild(li);
+      });
+    }
+
+    async function submitOrder() {
+      const tableNumber = new URLSearchParams(window.location.search).get('table');
+      const order = { tableNumber, orderItems };
+      try {
+        const response = await fetch('/order', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(order)
+        });
+        if (response.ok) {
+          alert('Order submitted');
+          orderItems = [];
+          updateOrderList();
+        } else {
+          throw new Error('Failed to submit order');
+        }
+      } catch (error) {
+        console.error('Error submitting order:', error);
+      }
+    }
+
     loadMenuItems();
-    fetchOrders();
   </script>
 </body>
 </html>
