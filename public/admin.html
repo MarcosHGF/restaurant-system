@@ -4,62 +4,57 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Admin Page</title>
+  <link rel="stylesheet" href="styles.css">
 </head>
-<body>
+<body class="admin-page">
   <h1>Admin Page</h1>
-  <div id="tables"></div>
+  <ul id="allOrders"></ul>
 
   <script>
-    async function fetchOrders() {
-      const response = await fetch('/orders');
-      const orders = await response.json();
-
-      const tables = document.getElementById('tables');
-      tables.innerHTML = '';
-
-      const tableOrders = {};
-
-      orders.forEach(order => {
-        if (!tableOrders[order.tableNumber]) {
-          tableOrders[order.tableNumber] = [];
+    async function loadAllOrders() {
+      try {
+        const response = await fetch('/orders');
+        if (!response.ok) {
+          throw new Error('Failed to fetch orders');
         }
-        tableOrders[order.tableNumber].push(order);
-      });
+        const orders = await response.json();
 
-      Object.keys(tableOrders).forEach(tableNumber => {
-        const tableDiv = document.createElement('div');
-        tableDiv.innerHTML = `<h2>Table ${tableNumber}</h2>`;
-        const ul = document.createElement('ul');
+        const ordersList = document.getElementById('allOrders');
+        ordersList.innerHTML = '';
 
-        let total = 0;
-
-        tableOrders[tableNumber].forEach(order => {
+        orders.forEach(order => {
+          const tableTotal = order.orderItems.reduce((total, item) => total + item.price, 0);
           const li = document.createElement('li');
-          li.textContent = `Order: ${order.orderNumber}, Price: $${order.itemPrice}`;
-          ul.appendChild(li);
-          total += order.itemPrice;
+          li.className = 'admin-item';
+          li.innerHTML = `
+            Table ${order.tableNumber}: Total $${tableTotal.toFixed(2)}
+            <button onclick="resetTable(${order.tableNumber})">Reset Table</button>
+          `;
+          ordersList.appendChild(li);
         });
-
-        const totalDiv = document.createElement('div');
-        totalDiv.textContent = `Total: $${total.toFixed(2)}`;
-
-        const resetButton = document.createElement('button');
-        resetButton.textContent = 'Reset Table';
-        resetButton.addEventListener('click', async function() {
-          await fetch(`/orders/reset/${tableNumber}`, {
-            method: 'DELETE'
-          });
-          fetchOrders();
-        });
-
-        tableDiv.appendChild(ul);
-        tableDiv.appendChild(totalDiv);
-        tableDiv.appendChild(resetButton);
-        tables.appendChild(tableDiv);
-      });
+      } catch (error) {
+        console.error('Error loading orders:', error);
+      }
     }
 
-    fetchOrders();
+        async function resetTable(tableNumber) {
+      try {
+        const response = await fetch(`/orders/reset/${tableNumber}`, {
+          method: 'DELETE'
+        });
+        if (response.ok) {
+          // Atualize a lista de pedidos ou o status das mesas
+          loadAllOrders(); // Supondo que essa função atualiza a lista de pedidos ou o status das mesas
+        } else {
+          throw new Error('Failed to reset table');
+        }
+      } catch (error) {
+        console.error('Error resetting table:', error);
+      }
+    }
+
+
+    loadAllOrders();
   </script>
 </body>
 </html>
