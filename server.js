@@ -18,9 +18,7 @@ mongoose.connect('mongodb://127.0.0.1:27017/restaurant', {
 
 const orderSchema = new mongoose.Schema({
   tableNumber: Number,
-  orderNumber: String,
-  itemPrice: Number,
-  status: { type: String, default: 'pending' } // Adiciona o campo status com valor padrão 'pending'
+  orderItems: [{ name: String, quantity: Number, price: Number, status: { type: String, default: 'pending' } }]
 });
 
 const Order = mongoose.model('Order', orderSchema);
@@ -36,14 +34,14 @@ fs.readFile(path.join(__dirname, 'public', 'menu.json'), 'utf8', (err, data) => 
 });
 
 app.post('/order', async (req, res) => {
-  const { tableNumber, orderNumber } = req.body;
-  const menuItem = menuItems.find(item => item.name === orderNumber);
+  const { tableNumber, orderItems } = req.body;
 
-  if (!menuItem) {
-    return res.status(400).send('Invalid order item');
-  }
+  // Criar pedidos separados para cada item individualmente
+  const newOrderItems = orderItems.flatMap(item => 
+    Array(item.quantity).fill().map(() => ({ name: item.name, price: item.price }))
+  );
 
-  const newOrder = new Order({ tableNumber, orderNumber, itemPrice: menuItem.price });
+  const newOrder = new Order({ tableNumber, orderItems: newOrderItems });
   await newOrder.save();
   res.status(201).send('Order received');
 });
@@ -59,11 +57,15 @@ app.get('/orders/:tableNumber', async (req, res) => {
   res.json(orders);
 });
 
-app.put('/orders/:id/status', async (req, res) => {
-  const { id } = req.params;
+app.put('/orders/:itemId/status', async (req, res) => {
+  const { itemId } = req.params;
   const { status } = req.body;
-  await Order.findByIdAndUpdate(id, { status });
-  res.status(200).send('Order status updated');
+  const order = await Order.findOneAndUpdate(
+    { 'orderItems._id': itemId },
+    { $set: { 'orderItems.$.status': status } },
+    { new: true }
+  );
+  res.json(order);
 });
 
 app.delete('/orders/reset/:tableNumber', async (req, res) => {
@@ -86,7 +88,7 @@ const generateQRCode = async (tableNumber) => {
   }
 };
 
-// Gerar QR Codes para 10 mesas
+// Gerar QR Codes para 5 mesas
 for (let i = 1; i <= 5; i++) {
   generateQRCode(i);
 }
